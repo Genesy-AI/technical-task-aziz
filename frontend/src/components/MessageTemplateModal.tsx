@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { api } from '../api'
+import { MESSAGE_FIELDS, messageFieldsByGroup } from '../utils/messageFields'
 
 interface MessageTemplateModalProps {
   isOpen: boolean
@@ -18,6 +19,7 @@ export const MessageTemplateModal: FC<MessageTemplateModalProps> = ({
   selectedLeadsCount,
 }) => {
   const [template, setTemplate] = useState('')
+  const [selectedField, setSelectedField] = useState(MESSAGE_FIELDS[0].key)
   const [generationResult, setGenerationResult] = useState<{
     success: boolean
     generatedCount: number
@@ -106,8 +108,6 @@ export const MessageTemplateModal: FC<MessageTemplateModalProps> = ({
     }
   }, [isOpen, handleClose])
 
-  const availableFields = ['firstName', 'lastName', 'email', 'jobTitle', 'companyName', 'countryCode']
-
   const insertField = (field: string) => {
     if (textareaRef.current) {
       const textarea = textareaRef.current
@@ -156,18 +156,33 @@ export const MessageTemplateModal: FC<MessageTemplateModalProps> = ({
                 Message Template
               </label>
               <div className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  <span className="text-sm text-gray-600">Insert field:</span>
-                  {availableFields.map((field) => (
-                    <button
-                      key={field}
-                      type="button"
-                      onClick={() => insertField(field)}
-                      className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors"
-                    >
-                      {`{${field}}`}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <label htmlFor="message-field" className="text-sm text-gray-600">
+                    Insert field:
+                  </label>
+                  <select
+                    id="message-field"
+                    value={selectedField}
+                    onChange={(e) => setSelectedField(e.target.value)}
+                    className="flex-1 max-w-xs px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {messageFieldsByGroup().map(({ group, fields }) => (
+                      <optgroup key={group} label={group}>
+                        {fields.map((field) => (
+                          <option key={field.key} value={field.key}>
+                            {field.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => insertField(selectedField)}
+                    className="px-3 py-1 text-sm font-medium text-blue-800 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors"
+                  >
+                    Insert
+                  </button>
                 </div>
                 <textarea
                   ref={textareaRef}

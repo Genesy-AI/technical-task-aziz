@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express'
 import { Connection, Client } from '@temporalio/client'
 import { verifyEmailWorkflow } from './workflows'
 import { generateMessageFromTemplate } from './utils/messageGenerator'
+import { normalizeOptionalLeadFields } from './utils/leadFields'
 import { verifyLeadEmails, VerifyLeadEmailsResult } from './services/verifyLeadEmails'
 import { runTemporalWorker } from './worker'
 const prisma = new PrismaClient()
@@ -222,6 +223,15 @@ app.post('/leads/bulk', async (req: Request, res: Response) => {
 
     for (const lead of uniqueLeads) {
       try {
+        // Optional fields are validated here too: the CSV parser is a convenience,
+        // not a trust boundary, and this route also serves direct API callers.
+        const { values, errors: fieldErrors } = normalizeOptionalLeadFields(lead)
+
+        if (fieldErrors.length > 0) {
+          errors.push({ lead, error: fieldErrors.join('; ') })
+          continue
+        }
+
         await prisma.lead.create({
           data: {
             firstName: lead.firstName.trim(),
@@ -230,6 +240,7 @@ app.post('/leads/bulk', async (req: Request, res: Response) => {
             jobTitle: lead.jobTitle ? lead.jobTitle.trim() : null,
             countryCode: lead.countryCode ? lead.countryCode.trim() : null,
             companyName: lead.companyName ? lead.companyName.trim() : null,
+            ...values,
           },
         })
         importedCount++

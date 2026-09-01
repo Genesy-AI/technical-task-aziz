@@ -224,3 +224,72 @@ Jane,Johnson,jane@example.com`
     expect(result[0].isValid).toBe(true)
   })
 })
+
+describe('phoneNumber, yearsAtCompany and linkedinUrl', () => {
+  const header = 'firstName,lastName,email,phoneNumber,yearsInRole,linkedinUrl'
+  const row = (rest: string) => parseCsv(`${header}\nJane,Smith,jane@example.com,${rest}`)[0]
+
+  it('maps the supplied yearsInRole alias onto yearsAtCompany', () => {
+    const lead = row('+1 555 0100,4,https://www.linkedin.com/in/jane')
+    expect(lead.yearsAtCompany).toBe(4)
+    expect(lead.isValid).toBe(true)
+  })
+
+  it('accepts the canonical yearsAtCompany header', () => {
+    const lead = parseCsv('firstName,lastName,email,yearsAtCompany\nJane,Smith,jane@example.com,9')[0]
+    expect(lead.yearsAtCompany).toBe(9)
+  })
+
+  it('keeps the phone number as a trimmed string without reformatting', () => {
+    expect(row('  +1 (555) 010-1234  ,4,https://www.linkedin.com/in/jane').phoneNumber).toBe(
+      '+1 (555) 010-1234'
+    )
+  })
+
+  it('leaves optional blanks undefined and still valid', () => {
+    const lead = row(',,')
+    expect(lead.phoneNumber).toBeUndefined()
+    expect(lead.yearsAtCompany).toBeUndefined()
+    expect(lead.linkedinUrl).toBeUndefined()
+    expect(lead.isValid).toBe(true)
+  })
+
+  it('accepts zero years', () => {
+    expect(row(',0,').yearsAtCompany).toBe(0)
+  })
+
+  it('rejects non-integer and out-of-range years', () => {
+    expect(row(',2.5,').errors).toContain('Years at company must be a whole number')
+    expect(row(',abc,').errors).toContain('Years at company must be a whole number')
+    expect(row(',101,').errors).toContain('Years at company must be between 0 and 100')
+    expect(row(',-1,').errors).toContain('Years at company must be a whole number')
+    expect(row(',101,').isValid).toBe(false)
+  })
+
+  it('rejects numeric forms that are not plain decimal digits', () => {
+    for (const value of ['1e2', '0x10', '+2', '2.0', ' 4 2 ']) {
+      expect(row(`,${value},`).errors).toContain('Years at company must be a whole number')
+      expect(row(`,${value},`).isValid).toBe(false)
+    }
+  })
+
+  it('still accepts digits surrounded by whitespace', () => {
+    expect(row(',  12  ,').yearsAtCompany).toBe(12)
+  })
+
+  it('accepts linkedin.com subdomains and rejects other hosts', () => {
+    expect(row(',,https://uk.linkedin.com/in/jane').isValid).toBe(true)
+    expect(row(',,http://linkedin.com/in/jane').isValid).toBe(true)
+    expect(row(',,https://example.com/in/jane').errors).toContain(
+      'LinkedIn URL must be a linkedin.com address'
+    )
+    expect(row(',,linkedin.com/in/jane').errors).toContain('LinkedIn URL must be a valid URL')
+  })
+
+  it('accepts the linkedInUrl header casing variant', () => {
+    const lead = parseCsv(
+      'firstName,lastName,email,linkedInUrl\nJane,Smith,jane@example.com,https://linkedin.com/in/jane'
+    )[0]
+    expect(lead.linkedinUrl).toBe('https://linkedin.com/in/jane')
+  })
+})
