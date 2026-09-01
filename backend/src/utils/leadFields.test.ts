@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeOptionalLeadFields, parseLinkedinUrl, parseYearsAtCompany } from './leadFields'
+import {
+  normalizeOptionalLeadFields,
+  parseLinkedinUrl,
+  parseYearsAtCompany,
+  parseCountryCode,
+  COUNTRY_CODE_ERROR,
+} from './leadFields'
 
 describe('parseYearsAtCompany', () => {
   it('accepts whole numbers across the supported range', () => {
@@ -64,5 +70,37 @@ describe('normalizeOptionalLeadFields', () => {
       linkedinUrl: 'https://example.com',
     })
     expect(errors).toHaveLength(2)
+  })
+})
+
+describe('parseCountryCode', () => {
+  it('treats missing and blank values as optional', () => {
+    expect(parseCountryCode(undefined)).toEqual({ value: null })
+    expect(parseCountryCode(null)).toEqual({ value: null })
+    expect(parseCountryCode('   ')).toEqual({ value: null })
+  })
+
+  it('trims and uppercases a valid alpha-2 code', () => {
+    expect(parseCountryCode('  es  ')).toEqual({ value: 'ES' })
+    expect(parseCountryCode('Us')).toEqual({ value: 'US' })
+  })
+
+  it('rejects values that are not exactly two ASCII letters', () => {
+    for (const value of ['XXX', '12', 'E', 'E1', 'ÉS', 'E S', 12]) {
+      const result = parseCountryCode(value)
+      expect(result).toEqual({ value: null, error: COUNTRY_CODE_ERROR })
+    }
+  })
+
+  it('surfaces the country error through normalizeOptionalLeadFields', () => {
+    const { values, errors } = normalizeOptionalLeadFields({ countryCode: 'XXX' })
+    expect(values.countryCode).toBeNull()
+    expect(errors).toContain(COUNTRY_CODE_ERROR)
+  })
+
+  it('normalizes the country code alongside the other optional fields', () => {
+    const { values, errors } = normalizeOptionalLeadFields({ countryCode: ' es ' })
+    expect(values.countryCode).toBe('ES')
+    expect(errors).toHaveLength(0)
   })
 })

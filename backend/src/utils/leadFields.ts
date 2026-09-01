@@ -1,4 +1,5 @@
 export type OptionalLeadFields = {
+  countryCode: string | null
   phoneNumber: string | null
   yearsAtCompany: number | null
   linkedinUrl: string | null
@@ -69,6 +70,22 @@ export const parseLinkedinUrl = (value: unknown): { value: string | null; error?
   return { value: trimmed }
 }
 
+/** Alpha-2 shape only: two ASCII letters. This is a format check, not ISO 3166 membership. */
+const ALPHA_2 = /^[A-Za-z]{2}$/
+
+export const COUNTRY_CODE_ERROR = 'Country code must be two letters (ISO alpha-2), e.g. ES'
+
+/** Optional; when supplied it must be alpha-2 and is normalized to uppercase. */
+export const parseCountryCode = (value: unknown): { value: string | null; error?: string } => {
+  if (value === null || value === undefined) return { value: null }
+
+  const trimmed = String(value).trim()
+  if (!trimmed) return { value: null }
+  if (!ALPHA_2.test(trimmed)) return { value: null, error: COUNTRY_CODE_ERROR }
+
+  return { value: trimmed.toUpperCase() }
+}
+
 /** Phone numbers stay verbatim apart from trimming: formats vary by country. */
 export const parsePhoneNumber = (value: unknown): string | null => {
   if (value === null || value === undefined) return null
@@ -77,16 +94,21 @@ export const parsePhoneNumber = (value: unknown): string | null => {
 }
 
 export const normalizeOptionalLeadFields = (lead: {
+  countryCode?: unknown
   phoneNumber?: unknown
   yearsAtCompany?: unknown
   linkedinUrl?: unknown
 }): NormalizedLeadFields => {
   const years = parseYearsAtCompany(lead.yearsAtCompany)
   const linkedin = parseLinkedinUrl(lead.linkedinUrl)
-  const errors = [years.error, linkedin.error].filter((error): error is string => Boolean(error))
+  const country = parseCountryCode(lead.countryCode)
+  const errors = [years.error, linkedin.error, country.error].filter((error): error is string =>
+    Boolean(error)
+  )
 
   return {
     values: {
+      countryCode: country.value,
       phoneNumber: parsePhoneNumber(lead.phoneNumber),
       yearsAtCompany: years.value,
       linkedinUrl: linkedin.value,

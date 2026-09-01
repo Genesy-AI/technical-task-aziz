@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseCsv, isValidEmail } from './csvParser'
+import { parseCsv, isValidEmail, COUNTRY_CODE_ERROR } from './csvParser'
 
 describe('isValidEmail', () => {
   it('should return true for valid email addresses', () => {
@@ -291,5 +291,35 @@ describe('phoneNumber, yearsAtCompany and linkedinUrl', () => {
       'firstName,lastName,email,linkedInUrl\nJane,Smith,jane@example.com,https://linkedin.com/in/jane'
     )[0]
     expect(lead.linkedinUrl).toBe('https://linkedin.com/in/jane')
+  })
+})
+
+describe('parseCsv country code', () => {
+  const withCountry = (countryCode: string) =>
+    parseCsv(`firstName,lastName,email,countryCode\nJane,Smith,jane@example.com,${countryCode}`)[0]
+
+  it('keeps a blank country code valid and unset', () => {
+    const lead = withCountry('')
+    expect(lead.countryCode).toBeUndefined()
+    expect(lead.isValid).toBe(true)
+  })
+
+  it('trims and uppercases a valid alpha-2 code', () => {
+    expect(withCountry('  es  ').countryCode).toBe('ES')
+    expect(withCountry('  es  ').isValid).toBe(true)
+    expect(withCountry('Us').countryCode).toBe('US')
+  })
+
+  it('rejects values that are not exactly two ASCII letters', () => {
+    for (const value of ['XXX', '12', 'E', 'E1', 'ÉS', 'E S']) {
+      const lead = withCountry(value)
+      expect(lead.errors).toContain(COUNTRY_CODE_ERROR)
+      expect(lead.isValid).toBe(false)
+    }
+  })
+
+  it('preserves the trimmed original invalid value so the preview can show it', () => {
+    expect(withCountry('  XXX  ').countryCode).toBe('XXX')
+    expect(withCountry('12').countryCode).toBe('12')
   })
 })

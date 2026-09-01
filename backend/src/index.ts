@@ -238,7 +238,6 @@ app.post('/leads/bulk', async (req: Request, res: Response) => {
             lastName: lead.lastName.trim(),
             email: lead.email.trim(),
             jobTitle: lead.jobTitle ? lead.jobTitle.trim() : null,
-            countryCode: lead.countryCode ? lead.countryCode.trim() : null,
             companyName: lead.companyName ? lead.companyName.trim() : null,
             ...values,
           },
@@ -252,11 +251,14 @@ app.post('/leads/bulk', async (req: Request, res: Response) => {
       }
     }
 
+    const invalidLeads = leads.length - validLeads.length
+
     res.json({
-      success: true,
+      // Duplicates are an expected no-op; rejected rows are not.
+      success: errors.length === 0 && invalidLeads === 0,
       importedCount,
       duplicatesSkipped: validLeads.length - uniqueLeads.length,
-      invalidLeads: leads.length - validLeads.length,
+      invalidLeads,
       errors,
     })
   } catch (error) {

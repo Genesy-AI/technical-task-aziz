@@ -45,6 +45,19 @@ export const parseYearsAtCompany = (value: string): { value?: number; error?: st
   return { value: parsed }
 }
 
+/** Alpha-2 shape only: two ASCII letters. This is a format check, not ISO 3166 membership. */
+const ALPHA_2 = /^[A-Za-z]{2}$/
+
+export const COUNTRY_CODE_ERROR = 'Country code must be two letters (ISO alpha-2), e.g. ES'
+
+/** Optional; when supplied it must be alpha-2 and is normalized to uppercase. */
+export const parseCountryCode = (value: string): { value?: string; error?: string } => {
+  const trimmed = value.trim()
+  if (!trimmed) return {}
+  if (!ALPHA_2.test(trimmed)) return { error: COUNTRY_CODE_ERROR }
+  return { value: trimmed.toUpperCase() }
+}
+
 /** Accepts linkedin.com and its subdomains over HTTP(S) only. */
 export const parseLinkedinUrl = (value: string): { value?: string; error?: string } => {
   if (!value) return {}
@@ -102,6 +115,7 @@ export const parseCsv = (content: string): CsvLead[] => {
     const lead: Partial<CsvLead> = { rowIndex: index + 2 }
     let rawYearsAtCompany = ''
     let rawLinkedinUrl = ''
+    let rawCountryCode = ''
 
     Object.entries(row).forEach(([header, value]) => {
       const normalizedHeader = header.toLowerCase().replace(/[^a-z]/g, '')
@@ -121,7 +135,7 @@ export const parseCsv = (content: string): CsvLead[] => {
           lead.jobTitle = trimmedValue || undefined
           break
         case 'countrycode':
-          lead.countryCode = trimmedValue || undefined
+          rawCountryCode = trimmedValue
           break
         case 'companyname':
           lead.companyName = trimmedValue || undefined
@@ -150,6 +164,11 @@ export const parseCsv = (content: string): CsvLead[] => {
     const linkedin = parseLinkedinUrl(rawLinkedinUrl)
     if (linkedin.error) errors.push(linkedin.error)
     lead.linkedinUrl = linkedin.value
+
+    const country = parseCountryCode(rawCountryCode)
+    if (country.error) errors.push(country.error)
+    // Keep the trimmed original when invalid so the preview shows what the user typed.
+    lead.countryCode = country.value ?? (rawCountryCode || undefined)
 
     if (!lead.firstName?.trim()) {
       errors.push('First name is required')
